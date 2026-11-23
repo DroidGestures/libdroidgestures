@@ -40,6 +40,7 @@ class GestureProcesser {
             { BTN_TOOL_TRIPLETAP, 0 },
             { BTN_TOOL_QUADTAP,   0 },
             { BTN_TOOL_QUINTTAP,  0 },
+            { BTN_TOUCH, 0 },
         };
 
         int currentTouchSlot = 0;

@@ -89,9 +89,8 @@ void GestureProcesser::cancelGesture(bool restore) {
     }
 
     // Reset/Restore tap mode
-    androidUi.writeEvent(EV_KEY, BTN_TOUCH, restore ? 1 : 0);
     for (const auto& [k, v] : currentTapMode) {
-        androidUi.writeEvent(EV_KEY, k, restore ? v : 0);
+        if (v != 0) androidUi.writeEvent(EV_KEY, k, restore ? v : 0);
     }
 
     androidUi.writeEvent(EV_ABS, ABS_MT_SLOT, currentTouchSlot);
@@ -167,10 +166,23 @@ void GestureProcesser::monitorGestures() {
                             // Trigger custom action
                             system(actionCmd->second.value().c_str());
                         } else {
-                            std::lock_guard<std::recursive_mutex> lock(androidUiMutex);
+                            {
+                                std::lock_guard<std::recursive_mutex> lock(androidUiMutex);
 
-                            // Pass gesture to Android as-is when handler isn't set
-                            androidUi.writeEvent(EV_KEY, BTN_TOOL_TRIPLETAP, 1);
+                                // Pass gesture to Android as-is when handler isn't set
+                                androidUi.writeEvent(EV_KEY, BTN_TOOL_TRIPLETAP, 1);
+                                androidUi.writeEvent(EV_SYN, SYN_REPORT, 0);
+                            }
+
+                            usleep(100000);
+
+                            {
+                                std::lock_guard<std::recursive_mutex> lock(androidUiMutex);
+
+                                // Release it
+                                androidUi.writeEvent(EV_KEY, BTN_TOOL_TRIPLETAP, 0);
+                                androidUi.writeEvent(EV_SYN, SYN_REPORT, 0);
+                            }
                         }
                     }
                     break;
@@ -214,6 +226,9 @@ void GestureProcesser::monitorGestures() {
                 case LIBINPUT_EVENT_GESTURE_SWIPE_END:
                     fingerCount = libinput_event_gesture_get_finger_count(event.gesture);
                     gestureFired = false;
+
+                    // Reset canceled touch points just in case
+                    cancelGesture(true);
 
                     Log::debug("End of {} finger swipe", fingerCount);
                     break;
